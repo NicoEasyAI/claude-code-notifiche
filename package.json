@@ -1,0 +1,21 @@
+{
+  "name": "claude-code-notifiche",
+  "version": "1.0.0",
+  "description": "Notifiche macOS native per Claude Code — suono + logo Claude quando finisce di generare",
+  "bin": {
+    "claude-code-notifiche": "./install.mjs"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "notifications",
+    "macos",
+    "skill"
+  ],
+  "author": "nicogiansi-cmd",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicogiansi-cmd/claude-code-notifiche"
+  }
+}
