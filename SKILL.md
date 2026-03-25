@@ -37,20 +37,17 @@ Se `/Applications/Claude.app` non esiste, salta questo step e avvisa l'utente ch
 ```bash
 ps aux | grep -i "[E]lectron" | grep -oE '/Applications/[^/]+\.app' | sort -u
 ```
-Per ogni app trovata, ottieni il bundle ID:
-```bash
-defaults read /Applications/NOMEAPP.app/Contents/Info.plist CFBundleIdentifier
-```
+Per ogni app trovata, ottieni il nome dell'app (es. "Antigravity", "Cursor", "Visual Studio Code").
 Se ci sono piu app Electron, chiedi all'utente quale usa come IDE. Se ce n'e una sola, usala.
 
 **Step 5: Invia notifica di test**
 ```bash
-/opt/homebrew/bin/terminal-notifier -message 'Le notifiche funzionano!' -title 'Claude Code' -sound Glass -activate BUNDLE_ID
+/opt/homebrew/bin/terminal-notifier -message 'Le notifiche funzionano!' -title 'Claude Code' -sound Glass -execute 'open -a IDE_APP_NAME'
 ```
-Chiedi all'utente se l'ha vista. Se NO, digli di andare in **Impostazioni di Sistema > Notifiche > terminal-notifier** e abilitare le notifiche, poi riprovare.
+Chiedi all'utente se l'ha vista e se cliccandola si e aperta l'app IDE. Se NO, digli di andare in **Impostazioni di Sistema > Notifiche > terminal-notifier** e abilitare le notifiche, poi riprovare.
 
 **Step 6: Configura gli hooks**
-Procedi come `/notifiche sempre` usando il bundle ID rilevato allo step 4.
+Procedi come `/notifiche sempre` usando il nome app rilevato allo step 4.
 
 Alla fine conferma: "Notifiche attive! Riceverai un avviso con logo Claude ogni volta che finisco di rispondere. Clicca sulla notifica per tornare all'IDE."
 
@@ -73,9 +70,11 @@ Leggi il file, rimuovi le chiavi `Stop`, `Notification` e `PermissionRequest` da
 ### `/notifiche sempre`
 Configura gli hooks senza il check dell'app in primo piano. Le notifiche arrivano SEMPRE, anche se stai guardando l'IDE.
 
-Per rilevare il bundle ID dell'IDE: controlla i processi Electron attivi con `ps aux | grep -i "[E]lectron"` e ottieni il bundle ID con `defaults read`. Se non riesci a rilevarlo, chiedi all'utente.
+Per rilevare l'IDE: controlla i processi Electron attivi con `ps aux | grep -i "[E]lectron"` e ottieni il nome dell'app. Se non riesci a rilevarlo, chiedi all'utente.
 
-Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente, sostituisci BUNDLE_ID con quello rilevato):
+**IMPORTANTE:** Usa `-execute 'open -a APP_NAME'` e NON `-activate BUNDLE_ID`. Il flag `-activate` non funziona in modo affidabile con tutte le app Electron. Il flag `-execute` con `open -a` funziona sempre.
+
+Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente, sostituisci IDE_APP_NAME con il nome dell'app rilevata, es. "Antigravity", "Cursor", "Visual Studio Code"):
 
 ```json
 {
@@ -85,7 +84,7 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente, s
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -message 'Ho finito di generare!' -title 'Claude Code' -sound Glass -activate BUNDLE_ID"
+            "command": "/opt/homebrew/bin/terminal-notifier -message 'Ho finito di generare!' -title 'Claude Code' -sound Glass -execute 'open -a IDE_APP_NAME'"
           }
         ]
       }
@@ -95,7 +94,7 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente, s
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua attenzione!' -title 'Claude Code' -sound Submarine -activate BUNDLE_ID"
+            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua attenzione!' -title 'Claude Code' -sound Submarine -execute 'open -a IDE_APP_NAME'"
           }
         ]
       }
@@ -105,7 +104,7 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente, s
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua autorizzazione!' -title 'Claude Code - Permesso' -sound Submarine -activate BUNDLE_ID"
+            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua autorizzazione!' -title 'Claude Code - Permesso' -sound Submarine -execute 'open -a IDE_APP_NAME'"
           }
         ]
       }
@@ -117,7 +116,7 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente, s
 ### `/notifiche smart`
 Come `/notifiche sempre` ma con il check dell'app in primo piano. Le notifiche arrivano solo quando l'IDE NON e in primo piano.
 
-Stessa logica di rilevamento bundle ID di `/notifiche sempre`. Wrappa ogni comando con:
+Stessa logica di rilevamento app di `/notifiche sempre`. Wrappa ogni comando con:
 
 ```
 FRONT=$(osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'); if [ "$FRONT" != "Electron" ] && [ "$FRONT" != "Code" ]; then COMANDO_NOTIFICA; fi
@@ -129,3 +128,4 @@ FRONT=$(osascript -e 'tell application "System Events" to get name of first appl
 2. **Merge** con il contenuto esistente — non sovrascrivere mai permissions, env, o altri hooks
 3. **Valida** il JSON dopo ogni modifica con `jq -e . ~/.claude/settings.json`
 4. Conferma all'utente lo stato finale dopo ogni operazione
+5. **Usa `-execute 'open -a APP_NAME'`** e MAI `-activate BUNDLE_ID` per il click-to-open
