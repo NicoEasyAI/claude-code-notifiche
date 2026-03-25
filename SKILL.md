@@ -1,31 +1,60 @@
 ---
 name: notifiche
-description: Gestisci le notifiche macOS di Claude Code. Attiva/disattiva le notifiche sonore quando Claude finisce di generare o ha bisogno di attenzione. Comandi - /notifiche on, /notifiche off, /notifiche sempre (anche se stai guardando), /notifiche smart (solo quando non guardi), /notifiche status.
+description: Gestisci le notifiche macOS di Claude Code. Attiva/disattiva le notifiche sonore quando Claude finisce di generare o ha bisogno di attenzione. Comandi - /notifiche install (setup guidato), /notifiche on, /notifiche off, /notifiche sempre, /notifiche smart, /notifiche status. Also triggers on notifiche install or notifiche setup.
 ---
 
 # Notifiche macOS per Claude Code
 
-Notifiche sonore native macOS che avvisano quando Claude finisce di generare o ha bisogno della tua attenzione. Cliccando sulla notifica si torna all'app IDE.
+Notifiche sonore native macOS con logo Claude che avvisano quando Claude finisce di generare o ha bisogno della tua attenzione. Cliccando sulla notifica si torna all'app IDE.
 
-## Prerequisiti
+## Comandi
 
-- `terminal-notifier` installato: `brew install terminal-notifier`
-- Abilitare le notifiche di terminal-notifier in **Impostazioni di Sistema > Notifiche > terminal-notifier**
-- Conoscere il bundle ID della propria app IDE (es. `com.google.antigravity`, `com.microsoft.VSCode`). Per trovarlo: `defaults read /Applications/NOMEAPP.app/Contents/Info.plist CFBundleIdentifier`
+### `/notifiche install` o `/notifiche setup`
 
-### Icona personalizzata (opzionale)
+Setup guidato. Esegui ogni step in sequenza, controlla il risultato e prosegui.
 
-Per cambiare l'icona della notifica (di default e il terminale), sostituisci l'icona dentro il bundle di terminal-notifier e forza il refresh:
-
+**Step 1: Controlla brew**
 ```bash
-# Esempio: usare il logo Claude
+/opt/homebrew/bin/brew --version
+```
+Se manca, guida l'utente ad installare Homebrew.
+
+**Step 2: Installa terminal-notifier**
+```bash
+/opt/homebrew/bin/brew install terminal-notifier
+```
+
+**Step 3: Sostituisci icona con logo Claude**
+```bash
 cp /Applications/Claude.app/Contents/Resources/electron.icns /opt/homebrew/Cellar/terminal-notifier/*/terminal-notifier.app/Contents/Resources/Terminal.icns
 touch /opt/homebrew/Cellar/terminal-notifier/*/terminal-notifier.app
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f /opt/homebrew/Cellar/terminal-notifier/*/terminal-notifier.app
 killall NotificationCenter Dock 2>/dev/null
 ```
+Se `/Applications/Claude.app` non esiste, salta questo step e avvisa l'utente che l'icona sara quella del terminale.
 
-## Comandi
+**Step 4: Rileva l'IDE in uso**
+```bash
+ps aux | grep -i "[E]lectron" | grep -oE '/Applications/[^/]+\.app' | sort -u
+```
+Per ogni app trovata, ottieni il bundle ID:
+```bash
+defaults read /Applications/NOMEAPP.app/Contents/Info.plist CFBundleIdentifier
+```
+Se ci sono piu app Electron, chiedi all'utente quale usa come IDE. Se ce n'e una sola, usala.
+
+**Step 5: Invia notifica di test**
+```bash
+/opt/homebrew/bin/terminal-notifier -message 'Le notifiche funzionano!' -title 'Claude Code' -sound Glass -activate BUNDLE_ID
+```
+Chiedi all'utente se l'ha vista. Se NO, digli di andare in **Impostazioni di Sistema > Notifiche > terminal-notifier** e abilitare le notifiche, poi riprovare.
+
+**Step 6: Configura gli hooks**
+Procedi come `/notifiche sempre` usando il bundle ID rilevato allo step 4.
+
+Alla fine conferma: "Notifiche attive! Riceverai un avviso con logo Claude ogni volta che finisco di rispondere. Clicca sulla notifica per tornare all'IDE."
+
+---
 
 ### `/notifiche status`
 Leggi `~/.claude/settings.json` e controlla se i hooks `Stop`, `Notification` e `PermissionRequest` esistono e sono attivi. Mostra lo stato attuale:
@@ -44,7 +73,9 @@ Leggi il file, rimuovi le chiavi `Stop`, `Notification` e `PermissionRequest` da
 ### `/notifiche sempre`
 Configura gli hooks senza il check dell'app in primo piano. Le notifiche arrivano SEMPRE, anche se stai guardando l'IDE.
 
-Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente):
+Per rilevare il bundle ID dell'IDE: controlla i processi Electron attivi con `ps aux | grep -i "[E]lectron"` e ottieni il bundle ID con `defaults read`. Se non riesci a rilevarlo, chiedi all'utente.
+
+Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente, sostituisci BUNDLE_ID con quello rilevato):
 
 ```json
 {
@@ -54,7 +85,7 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente):
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -message 'Ho finito di generare!' -title 'Claude Code' -sound Glass -activate com.google.antigravity"
+            "command": "/opt/homebrew/bin/terminal-notifier -message 'Ho finito di generare!' -title 'Claude Code' -sound Glass -activate BUNDLE_ID"
           }
         ]
       }
@@ -64,7 +95,7 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente):
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua attenzione!' -title 'Claude Code' -sound Submarine -activate com.google.antigravity"
+            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua attenzione!' -title 'Claude Code' -sound Submarine -activate BUNDLE_ID"
           }
         ]
       }
@@ -74,7 +105,7 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente):
         "hooks": [
           {
             "type": "command",
-            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua autorizzazione!' -title 'Claude Code - Permesso' -sound Submarine -activate com.google.antigravity"
+            "command": "/opt/homebrew/bin/terminal-notifier -message 'Serve la tua autorizzazione!' -title 'Claude Code - Permesso' -sound Submarine -activate BUNDLE_ID"
           }
         ]
       }
@@ -82,52 +113,15 @@ Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente):
   }
 }
 ```
-
-**Nota:** Sostituisci `com.google.antigravity` con il bundle ID della tua app IDE.
 
 ### `/notifiche smart`
-Configura gli hooks CON il check dell'app in primo piano. Le notifiche arrivano solo quando l'IDE NON e in primo piano (stai facendo altro).
+Come `/notifiche sempre` ma con il check dell'app in primo piano. Le notifiche arrivano solo quando l'IDE NON e in primo piano.
 
-Hooks da scrivere in `~/.claude/settings.json` (merge con contenuto esistente):
+Stessa logica di rilevamento bundle ID di `/notifiche sempre`. Wrappa ogni comando con:
 
-```json
-{
-  "hooks": {
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FRONT=$(osascript -e 'tell application \"System Events\" to get name of first application process whose frontmost is true'); if [ \"$FRONT\" != \"Electron\" ] && [ \"$FRONT\" != \"Code\" ]; then /opt/homebrew/bin/terminal-notifier -message 'Ho finito di generare!' -title 'Claude Code' -sound Glass -activate com.google.antigravity; fi"
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FRONT=$(osascript -e 'tell application \"System Events\" to get name of first application process whose frontmost is true'); if [ \"$FRONT\" != \"Electron\" ] && [ \"$FRONT\" != \"Code\" ]; then /opt/homebrew/bin/terminal-notifier -message 'Serve la tua attenzione!' -title 'Claude Code' -sound Submarine -activate com.google.antigravity; fi"
-          }
-        ]
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "FRONT=$(osascript -e 'tell application \"System Events\" to get name of first application process whose frontmost is true'); if [ \"$FRONT\" != \"Electron\" ] && [ \"$FRONT\" != \"Code\" ]; then /opt/homebrew/bin/terminal-notifier -message 'Serve la tua autorizzazione!' -title 'Claude Code - Permesso' -sound Submarine -activate com.google.antigravity; fi"
-          }
-        ]
-      }
-    ]
-  }
-}
 ```
-
-**Nota:** Sostituisci `com.google.antigravity` con il bundle ID della tua app IDE.
+FRONT=$(osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true'); if [ "$FRONT" != "Electron" ] && [ "$FRONT" != "Code" ]; then COMANDO_NOTIFICA; fi
+```
 
 ## Regole importanti
 
